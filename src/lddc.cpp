@@ -41,13 +41,14 @@ namespace livox_ros {
 
 /** Lidar Data Distribute Control--------------------------------------------*/
 Lddc::Lddc(int format, int multi_topic, int data_src, int output_type,
-           double frq, std::string &frame_id)
+           double frq, std::string &frame_id, const std::vector<std::string> &frame_ids)
     : transfer_format_(format),
       use_multi_topic_(multi_topic),
       data_src_(data_src),
       output_type_(output_type),
       publish_frq_(frq),
-      frame_id_(frame_id) {
+      frame_id_(frame_id),
+      frame_ids_(frame_ids) {
   publish_period_ns_ = kNsPerSecond / publish_frq_;
   lds_ = nullptr;
 }
@@ -152,7 +153,7 @@ void Lddc::PublishPointcloud2(LidarDataQueue *queue, uint8_t index) {
 
     PointCloud2 cloud;
     uint64_t timestamp = 0;
-    InitPointcloud2Msg(pkg, cloud, timestamp);
+    InitPointcloud2Msg(pkg, cloud, timestamp, index);
     PublishPointcloud2Data(index, timestamp, cloud);
   }
 }
@@ -200,8 +201,13 @@ void Lddc::PublishPclMsg(LidarDataQueue *queue, uint8_t index) {
   return;
 }
 
-void Lddc::InitPointcloud2MsgHeader(PointCloud2& cloud) {
-  cloud.header.frame_id.assign(frame_id_);
+void Lddc::InitPointcloud2MsgHeader(PointCloud2& cloud, uint8_t index) {
+  // Use the specific frame_id if available, otherwise use the default
+  if (index < frame_ids_.size() && !frame_ids_[index].empty()) {
+    cloud.header.frame_id.assign(frame_ids_[index]);
+  } else {
+    cloud.header.frame_id.assign(frame_id_);
+  }
   cloud.height = 1;
   cloud.width = 0;
   cloud.fields.resize(7);
@@ -236,8 +242,8 @@ void Lddc::InitPointcloud2MsgHeader(PointCloud2& cloud) {
   cloud.point_step = sizeof(LivoxPointXyzrtlt);
 }
 
-void Lddc::InitPointcloud2Msg(const StoragePacket& pkg, PointCloud2& cloud, uint64_t& timestamp) {
-  InitPointcloud2MsgHeader(cloud);
+void Lddc::InitPointcloud2Msg(const StoragePacket& pkg, PointCloud2& cloud, uint64_t& timestamp, uint8_t index) {
+  InitPointcloud2MsgHeader(cloud, index);
 
   cloud.point_step = sizeof(LivoxPointXyzrtlt);
 
@@ -279,7 +285,12 @@ void Lddc::PublishPointcloud2Data(const uint8_t index, const uint64_t timestamp,
 }
 
 void Lddc::InitCustomMsg(CustomMsg& livox_msg, const StoragePacket& pkg, uint8_t index) {
-  livox_msg.header.frame_id.assign(frame_id_);
+  // Use the specific frame_id if available, otherwise use the default
+  if (index < frame_ids_.size() && !frame_ids_[index].empty()) {
+    livox_msg.header.frame_id.assign(frame_ids_[index]);
+  } else {
+    livox_msg.header.frame_id.assign(frame_id_);
+  }
 
 
   uint64_t timestamp = 0;
@@ -345,8 +356,13 @@ void Lddc::PublishPclData(const uint8_t index, const uint64_t timestamp, const P
   return;
 }
 
-void Lddc::InitImuMsg(const ImuData& imu_data, ImuMsg& imu_msg, uint64_t& timestamp) {
-  imu_msg.header.frame_id = "livox_frame";
+void Lddc::InitImuMsg(const ImuData& imu_data, ImuMsg& imu_msg, uint64_t& timestamp, uint8_t index) {
+  // Use the specific frame_id if available, otherwise use the default
+  if (index < frame_ids_.size() && !frame_ids_[index].empty()) {
+    imu_msg.header.frame_id = frame_ids_[index];
+  } else {
+    imu_msg.header.frame_id = frame_id_;
+  }
 
   timestamp = imu_data.time_stamp;
   imu_msg.header.stamp = rclcpp::Time(timestamp);  // to ros time stamp
@@ -368,7 +384,7 @@ void Lddc::PublishImuData(LidarImuDataQueue& imu_data_queue, const uint8_t index
 
   ImuMsg imu_msg;
   uint64_t timestamp;
-  InitImuMsg(imu_data, imu_msg, timestamp);
+  InitImuMsg(imu_data, imu_msg, timestamp, index);
 
   Publisher<ImuMsg>::SharedPtr publisher_ptr = std::dynamic_pointer_cast<Publisher<ImuMsg>>(GetCurrentImuPublisher(index));
 

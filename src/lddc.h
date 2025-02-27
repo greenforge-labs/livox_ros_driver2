@@ -62,7 +62,7 @@ class DriverNode;
 class Lddc final {
  public:
   Lddc(int format, int multi_topic, int data_src, int output_type, double frq,
-      std::string &frame_id);
+      std::string &frame_id, const std::vector<std::string> &frame_ids = {});
   ~Lddc();
 
   int RegisterLds(Lds *lds);
@@ -91,8 +91,8 @@ class Lddc final {
 
   void PublishImuData(LidarImuDataQueue& imu_data_queue, const uint8_t index);
 
-  void InitPointcloud2MsgHeader(PointCloud2& cloud);
-  void InitPointcloud2Msg(const StoragePacket& pkg, PointCloud2& cloud, uint64_t& timestamp);
+  void InitPointcloud2MsgHeader(PointCloud2& cloud, uint8_t index);
+  void InitPointcloud2Msg(const StoragePacket& pkg, PointCloud2& cloud, uint64_t& timestamp, uint8_t index);
   void PublishPointcloud2Data(const uint8_t index, uint64_t timestamp, const PointCloud2& cloud);
 
   void InitCustomMsg(CustomMsg& livox_msg, const StoragePacket& pkg, uint8_t index);
@@ -103,7 +103,7 @@ class Lddc final {
   void FillPointsToPclMsg(const StoragePacket& pkg, PointCloud& pcl_msg);
   void PublishPclData(const uint8_t index, const uint64_t timestamp, const PointCloud& cloud);
 
-  void InitImuMsg(const ImuData& imu_data, ImuMsg& imu_msg, uint64_t& timestamp);
+  void InitImuMsg(const ImuData& imu_data, ImuMsg& imu_msg, uint64_t& timestamp, uint8_t index);
 
   void FillPointsToPclMsg(PointCloud& pcl_msg, LivoxPointXyzrtlt* src_point, uint32_t num);
   void FillPointsToCustomMsg(CustomMsg& livox_msg, LivoxPointXyzrtlt* src_point, uint32_t num,
@@ -123,7 +123,8 @@ class Lddc final {
   uint8_t output_type_;
   double publish_frq_;
   uint32_t publish_period_ns_;
-  std::string frame_id_;
+  std::string frame_id_; // Default frame_id
+  std::vector<std::string> frame_ids_; // Frame IDs for each lidar
 
   PublisherPtr private_pub_[kMaxSourceLidar];
   PublisherPtr global_pub_;
